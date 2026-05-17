@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "504242799352",
+    "project_id": "if670week12notifications-b58d7",
+    "storage_bucket": "if670week12notifications-b58d7.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:504242799352:android:13dacc42d1d641c7f2f10d",
+        "android_client_info": {
+          "package_name": "com.if670.week12notifications"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBhHG3tHglJa7Djy3sRNCNc2C_JZEHJjS8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
