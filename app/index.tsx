@@ -3,6 +3,11 @@ import * as Notifications from 'expo-notifications'
 import React, { useEffect, useState } from 'react'
 import { Button, Platform, Text, View } from 'react-native'
 
+import { Provider, useSelector } from 'react-redux'
+import { addFailure, addSuccess, resetStatus } from '../src/firebaseStatus.slice'
+import { useAppDispatch } from '../src/hooks'
+import { RootState, store } from '../src/store'
+
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldPlaySound: true,
@@ -12,16 +17,23 @@ Notifications.setNotificationHandler({
   }),
 })
 
-async function sendPushNotification(expoPushToken: string) {
+async function sendPushNotification(
+  expoPushToken: string,
+  success: number,
+  failure: number
+) {
   const message = {
     to: expoPushToken,
     sound: 'default',
-    title: 'Original Title',
-    body: 'And here is the body!',
-    data: { someData: 'goes here' },
+    title: 'Firebase Process Finished',
+    body: `${success} successful, ${failure} unsuccessful.`,
+    data: {
+      success,
+      failure,
+    },
   }
 
-  await fetch('https://exp.host/--/api/v2/push/send', {
+  const response = await fetch('https://exp.host/--/api/v2/push/send', {
     method: 'POST',
     headers: {
       Accept: 'application/json',
@@ -30,6 +42,12 @@ async function sendPushNotification(expoPushToken: string) {
     },
     body: JSON.stringify(message),
   })
+
+  if (!response.ok) {
+    throw new Error('Failed to send notification')
+  }
+
+  return await response.json()
 }
 
 function handleRegistrationError(errorMessage: string) {
@@ -53,7 +71,9 @@ async function registerForPushNotificationsAsync() {
     const { status } = await Notifications.requestPermissionsAsync()
 
     if (status !== 'granted') {
-      handleRegistrationError('Permission not granted to get push token for push notification!')
+      handleRegistrationError(
+        'Permission not granted to get push token for push notification!'
+      )
       return
     }
   }
@@ -80,10 +100,20 @@ async function registerForPushNotificationsAsync() {
   }
 }
 
-export default function App() {
+function MainApp() {
   const [expoPushToken, setExpoPushToken] = useState('')
   const [notification, setNotification] =
     useState<Notifications.Notification | undefined>()
+
+  const dispatch = useAppDispatch()
+
+  const success = useSelector(
+    (state: RootState) => state.firebaseStatus.success
+  )
+
+  const failure = useSelector(
+    (state: RootState) => state.firebaseStatus.failure
+  )
 
   useEffect(() => {
     registerForPushNotificationsAsync()
@@ -106,9 +136,47 @@ export default function App() {
     }
   }, [])
 
+  const handleSendNotification = async () => {
+    try {
+      const nextSuccess = success + 1
+
+      await sendPushNotification(expoPushToken, nextSuccess, failure)
+
+      dispatch(addSuccess())
+    } catch (error) {
+      const nextFailure = failure + 1
+
+      dispatch(addFailure())
+
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title: 'Firebase Process Finished',
+          body: `${success} successful, ${nextFailure} unsuccessful.`,
+          data: {
+            success,
+            failure: nextFailure,
+          },
+        },
+        trigger: null,
+      })
+    }
+  }
+
   return (
-    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'space-around' }}>
+    <View
+      style={{
+        flex: 1,
+        alignItems: 'center',
+        justifyContent: 'space-around',
+        padding: 20,
+      }}
+    >
       <Text>Your Expo push token: {expoPushToken}</Text>
+
+      <View style={{ alignItems: 'center', justifyContent: 'center' }}>
+        <Text>Successful: {success}</Text>
+        <Text>Unsuccessful: {failure}</Text>
+      </View>
 
       <View style={{ alignItems: 'center', justifyContent: 'center' }}>
         <Text>Title: {notification?.request.content.title}</Text>
@@ -117,11 +185,22 @@ export default function App() {
       </View>
 
       <Button
-        title="Press to Send Notification"
-        onPress={async () => {
-          await sendPushNotification(expoPushToken)
-        }}
+        title="Send Firebase Notification"
+        onPress={handleSendNotification}
+      />
+
+      <Button
+        title="Reset Counter"
+        onPress={() => dispatch(resetStatus())}
       />
     </View>
+  )
+}
+
+export default function App() {
+  return (
+    <Provider store={store}>
+      <MainApp />
+    </Provider>
   )
 }
